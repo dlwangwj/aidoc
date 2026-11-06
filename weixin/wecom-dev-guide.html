@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>企业微信开发对比：智能机器人 vs 企业自建应用</title>
+<style>
+  :root {
+    --bot: #2563eb;
+    --app: #059669;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --warn: #b45309;
+    --warn-bg: #fffbeb;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding-left: 240px;
+    scroll-behavior: smooth;
+  }
+  /* 左侧目录 */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 240px;
+    background: #0f172a;
+    color: #cbd5e1;
+    overflow-y: auto;
+    padding: 20px 0;
+    z-index: 10;
+  }
+  .sidebar .brand {
+    color: #fff;
+    font-weight: bold;
+    font-size: 15px;
+    padding: 0 20px 16px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #1e293b;
+  }
+  .sidebar a {
+    display: block;
+    color: #cbd5e1;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 9px 20px;
+    border-left: 3px solid transparent;
+  }
+  .sidebar a:hover { background: #1e293b; color: #fff; }
+  .sidebar a.active { background: #1e293b; color: #fff; border-left-color: #38bdf8; }
+  section { scroll-margin-top: 16px; }
+  @media (max-width: 900px) {
+    body { padding-left: 0; }
+    .sidebar {
+      position: static;
+      width: auto;
+      display: flex;
+      align-items: center;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      padding: 0;
+    }
+    .sidebar .brand { border: none; margin: 0; padding: 14px 16px; }
+    .sidebar a { border-left: none; border-bottom: 3px solid transparent; padding: 14px 12px; }
+    .sidebar a.active { border-bottom-color: #38bdf8; }
+  }
+  header {
+    background: linear-gradient(135deg, #1e3a8a, #065f46);
+    color: #fff;
+    padding: 48px 24px;
+    text-align: center;
+  }
+  header h1 { margin: 0 0 8px; font-size: 28px; }
+  header p { margin: 0; opacity: .85; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  section {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  h2 { margin: 0 0 16px; font-size: 22px; border-left: 4px solid var(--text); padding-left: 12px; }
+  h3 { margin: 20px 0 8px; font-size: 17px; }
+  code, pre { font-family: Consolas, "Courier New", monospace; }
+  code {
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  pre {
+    background: #0f172a;
+    color: #e2e8f0;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  /* 代码块内的 code 不要套用行内 code 的浅色底和内边距，否则浅字落在浅底上看不清 */
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 10px 12px; text-align: left; vertical-align: top; }
+  th { background: #f1f5f9; }
+  td.dim { color: var(--muted); }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    border-radius: 12px;
+    padding: 20px;
+    border-top: 6px solid;
+    background: var(--card);
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .card.bot { border-top-color: var(--bot); }
+  .card.app { border-top-color: var(--app); }
+  .card h3 { margin-top: 0; }
+  .tag {
+    display: inline-block;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin: 2px 4px 2px 0;
+    color: #fff;
+  }
+  .tag.bot { background: var(--bot); }
+  .tag.app { background: var(--app); }
+  .tag.gray { background: var(--muted); }
+  ul { padding-left: 20px; margin: 6px 0; }
+  li { margin: 4px 0; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0; }
+  .step {
+    background: #f1f5f9;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  .arrow { color: var(--muted); font-weight: bold; }
+  .note {
+    background: var(--warn-bg);
+    border-left: 4px solid var(--warn);
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    margin: 12px 0;
+  }
+  .decision { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .decision { grid-template-columns: 1fr; } }
+  .decision div { border: 1px solid var(--line); border-radius: 8px; padding: 14px; font-size: 14px; }
+  .decision .q { font-weight: bold; margin-bottom: 4px; }
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 16px 0 32px; }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="brand">企业微信开发指南</div>
+  <a href="#overview">一、两者一句话概括</a>
+  <a href="#compare">二、功能对比总表</a>
+  <a href="#docs">三、官方文档结构</a>
+  <a href="#flow">四、接入方式与调用流程</a>
+  <a href="#code">五、代码示例</a>
+  <a href="#choose">六、如何选择</a>
+  <a href="#notes">七、开发注意事项</a>
+</nav>
+
+<header>
+  <h1>企业微信开发对比指南</h1>
+  <p>智能机器人开发 &nbsp;vs&nbsp; 企业自建应用开发 —— 功能、接入方式与选型一览</p>
+</header>
+
+<main>
+
+  <div class="note">
+    <strong>说明：</strong>本页基于企业微信公开文档的通用知识整理，未在线核对官方最新版本。接口名、参数、权限范围以
+    <a href="https://developer.work.weixin.qq.com/document/" target="_blank">官方开发者文档</a> 为准。
+  </div>
+
+  <!-- 一、概览 -->
+  <section id="overview">
+    <h2>一、两者一句话概括</h2>
+    <div class="cards">
+      <div class="card bot">
+        <h3><span class="tag bot">1</span>智能机器人</h3>
+        <p>一个<strong>可被员工在单聊、群聊中 @ 或直接对话</strong>的 AI/对话式机器人。
+        核心能力是<strong>收消息 → 处理 → 流式回复</strong>，偏向"对话交互"场景。</p>
+        <p class="dim" style="color:#64748b">典型场景：智能问答、知识库助手、工单查询、审批提醒、运维助手。</p>
+      </div>
+      <div class="card app">
+        <h3><span class="tag app">2</span>企业自建应用</h3>
+        <p>企业在管理后台创建的<strong>独立应用</strong>，拥有 AgentId 与 Secret，
+        通过 <strong>access_token</strong> 调用企业微信全套服务端 API，偏向"系统集成"场景。</p>
+        <p style="color:#64748b">典型场景：OA/ERP/CRM 集成、消息推送通知、通讯录同步、网页应用（H5）单点登录。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 二、功能对比 -->
+  <section id="compare">
+    <h2>二、功能对比总表</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:18%">维度</th>
+          <th style="width:41%"><span class="tag bot">智能机器人</span></th>
+          <th style="width:41%"><span class="tag app">企业自建应用</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>创建位置</strong></td><td>管理后台 → 应用管理 → 智能机器人</td><td>管理后台 → 应用管理 → 自建 → 创建应用</td></tr>
+        <tr><td><strong>身份凭证</strong></td><td>机器人标识 + 长连接 Secret（长连接模式）或 Token / EncodingAESKey（回调模式）</td><td><code>CorpID</code> + <code>AgentId</code> + <code>Secret</code>，换取 <code>access_token</code></td></tr>
+        <tr><td><strong>接收消息</strong></td><td>文本、图片、图文混排、语音、文件、事件等</td><td>通过"接收消息服务器配置"回调，XML 加解密，支持用户/群/事件等</td></tr>
+        <tr><td><strong>发送消息</strong></td><td>在会话中回复，支持<strong>流式（stream）分段刷新</strong></td><td>调用 <code>message/send</code> 按成员、部门、标签推送；支持文本、图文、卡片、文件等</td></tr>
+        <tr><td><strong>主动推送</strong></td><td class="dim">受会话限制，一般用于响应用户消息后回复</td><td>可随时主动推送给应用可见范围内的成员</td></tr>
+        <tr><td><strong>通讯录 API</strong></td><td class="dim">不具备通讯录管理能力</td><td>✅ 可读写部门、成员、标签（需对应权限）</td></tr>
+        <tr><td><strong>网页 / H5 能力</strong></td><td class="dim">无</td><td>✅ 可配置<strong>可信域名</strong>，支持 OAuth2 登录、JS-SDK、工作台网页应用</td></tr>
+        <tr><td><strong>所在会话</strong></td><td>单聊、群聊（被 @ 或私聊触发）</td><td>成员在企业微信内的应用消息列表中接收</td></tr>
+        <tr><td><strong>公网要求</strong></td><td>长连接模式<strong>无需公网</strong>；回调模式需要公网可访问地址</td><td>回调接收需要公网地址；调用 API 需配置<strong>可信 IP</strong></td></tr>
+        <tr><td><strong>开发门槛</strong></td><td>低，适合快速做对话式 Bot</td><td>中，需理解 token 管理、加解密、权限与可见范围</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="docs">
+    <h2>三、官方文档结构（已核对导航树）</h2>
+    <div class="cards">
+      <div class="card bot">
+        <h3><span class="tag bot">智能机器人</span> 文档章节</h3>
+        <ul>
+          <li>概述</li>
+          <li>接收消息 / 接收事件</li>
+          <li>被动回复消息 / 主动回复消息</li>
+          <li>模板卡片类型</li>
+          <li>回调和回复的加解密方案</li>
+          <li><strong>智能机器人长连接</strong></li>
+          <li>API模式机器人文档使用说明</li>
+          <li>群聊会话：获取群聊列表、获取群聊会话、修改群聊会话</li>
+        </ul>
+      </div>
+      <div class="card app">
+        <h3><span class="tag app">企业自建应用</span> 文档章节</h3>
+        <ul>
+          <li>通讯录管理、客户联系、应用管理</li>
+          <li>消息推送（应用消息、会话与群聊）</li>
+          <li>素材管理、身份验证（OAuth2）</li>
+          <li>移动端 SDK（JS-SDK、登录与分享）</li>
+          <li>OA、效率工具、企业支付等</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note">
+      以上章节来自官方文档导航树，已确认存在。各接口的字段、报文和示例需要打开对应页面查看，本页未能抓取正文。
+    </div>
+  </section>
+
+  <!-- 三、接入方式 -->
+  <section id="flow">
+    <h2>四、接入方式与调用流程</h2>
+
+    <h3><span class="tag bot">智能机器人</span> 消息链路</h3>
+    <div class="flow">
+      <div class="step">员工在单聊/群聊发消息</div><span class="arrow">→</span>
+      <div class="step">企微推送事件<br><small>长连接 / 回调</small></div><span class="arrow">→</span>
+      <div class="step">开发者服务解析</div><span class="arrow">→</span>
+      <div class="step">流式回复<br><small>stream 分段</small></div>
+    </div>
+    <ul>
+      <li><strong>长连接模式</strong>：开发者服务主动与企微建立 WebSocket，适合内网部署、无公网 IP 的场景。</li>
+      <li><strong>回调模式</strong>：企微把消息 POST 到开发者配置的 URL，需校验签名并解密。</li>
+    </ul>
+
+    <h3><span class="tag app">企业自建应用</span> 调用链路</h3>
+    <div class="flow">
+      <div class="step">用 CorpID + Secret</div><span class="arrow">→</span>
+      <div class="step">获取 access_token<br><small>有效期约 7200s，需缓存</small></div><span class="arrow">→</span>
+      <div class="step">调用业务 API<br><small>message/send、通讯录等</small></div>
+    </div>
+    <ul>
+      <li><strong>接收消息</strong>：在应用中配置"接收消息服务器"URL、Token、EncodingAESKey，企微以 XML 加密回调。</li>
+      <li><strong>网页应用</strong>：配置可信域名 → 用户在企微内打开网页 → OAuth2 获取 userid → 前端/后端完成登录。</li>
+    </ul>
+  </section>
+
+  <!-- 四、代码示例 -->
+  <section id="code">
+    <h2>五、代码示例（Python）</h2>
+
+    <h3><span class="tag app">自建应用</span> 获取 token 并发送消息</h3>
+<pre><code>import time, requests
+
+CORP_ID = "ww_xxx"
+AGENT_ID = 1000002
+SECRET = "xxx"
+
+_token_cache = {"token": None, "expire": 0}
+
+def get_access_token():
+    # access_token 有效期约 7200 秒，应缓存复用，不要每次请求都获取
+    if _token_cache["token"] and time.time() < _token_cache["expire"]:
+        return _token_cache["token"]
+    url = "https://qyapi.weixin.qq.com/cgi-bin/gettoken"
+    data = requests.get(url, params={"corpid": CORP_ID, "corpsecret": SECRET}).json()
+    _token_cache["token"] = data["access_token"]
+    _token_cache["expire"] = time.time() + data["expires_in"] - 300  # 提前 5 分钟刷新
+    return _token_cache["token"]
+
+def send_text(userid, content):
+    url = "https://qyapi.weixin.qq.com/cgi-bin/message/send"
+    body = {
+        "touser": userid,
+        "msgtype": "text",
+        "agentid": AGENT_ID,
+        "text": {"content": content},
+    }
+    return requests.post(url, params={"access_token": get_access_token()}, json=body).json()
+
+send_text("zhangsan", "部署已完成 ✅")</code></pre>
+
+    <div class="note">
+      智能机器人的收发消息是<strong>事件驱动</strong>的：消息通过长连接或回调到达，回复时需在同一会话上下文中返回，
+      流式回复需按"开始 → 多次刷新 → 结束"的顺序发送。具体报文格式请以官方文档为准。
+    </div>
+  </section>
+
+  <!-- 五、选型 -->
+  <section id="choose">
+    <h2>六、如何选择</h2>
+    <div class="decision">
+      <div>
+        <div class="q">✅ 选 智能机器人，如果：</div>
+        <ul>
+          <li>核心需求是"员工和 Bot 对话"</li>
+          <li>需要在群里 @ 机器人、流式输出 AI 回答</li>
+          <li>不需要网页、不需要通讯录管理</li>
+          <li>服务部署在内网，希望免公网（长连接）</li>
+        </ul>
+      </div>
+      <div>
+        <div class="q">✅ 选 企业自建应用，如果：</div>
+        <ul>
+          <li>需要<strong>主动</strong>向员工推送业务通知</li>
+          <li>需要读写通讯录、部门、标签</li>
+          <li>需要做 H5 网页、OAuth 单点登录、JS-SDK</li>
+          <li>与 OA、ERP、监控等系统做深度集成</li>
+        </ul>
+      </div>
+    </div>
+    <div class="note" style="margin-top:16px">
+      <strong>常见组合：</strong>用<strong>自建应用</strong>做系统通知和网页入口，用<strong>智能机器人</strong>做对话式交互，两者可在同一项目中共存。
+    </div>
+  </section>
+
+  <!-- 六、注意事项 -->
+  <section id="notes">
+    <h2>七、开发注意事项</h2>
+    <ul>
+      <li><strong>access_token 必须缓存</strong>：频繁获取会触发频率限制，且会使旧 token 失效。</li>
+      <li><strong>可见范围</strong>：自建应用只能推送给可见范围内的成员，否则返回权限错误。</li>
+      <li><strong>可信 IP</strong>：服务端调用 API 的出口 IP 需加入应用的可信 IP 列表。</li>
+      <li><strong>可信域名</strong>：网页应用的域名必须备案并在后台配置，否则 OAuth 与 JS-SDK 不可用。</li>
+      <li><strong>加解密</strong>：回调请求需校验签名并解密，注意 Token 与 EncodingAESKey 不要泄露。</li>
+      <li><strong>权限与接口版本</strong>：通讯录等接口需在应用权限中勾选，接口能力可能随版本变化，上线前请核对官方文档。</li>
+    </ul>
+  </section>
+
+</main>
+
+<footer>
+  企业微信开发对比指南 · 仅供技术参考 · 请以 <a href="https://developer.work.weixin.qq.com/document/" target="_blank">官方文档</a> 为准
+</footer>
+
+<script>
+  // 滚动时高亮左侧当前章节
+  const links = document.querySelectorAll('.sidebar a');
+  const sections = [...links].map(a => document.querySelector(a.getAttribute('href')));
+  function highlight() {
+    let current = 0;
+    sections.forEach((sec, i) => {
+      if (sec && sec.getBoundingClientRect().top <= 120) current = i;
+    });
+    links.forEach((a, i) => a.classList.toggle('active', i === current));
+  }
+  window.addEventListener('scroll', highlight, { passive: true });
+  highlight();
+</script>
+
+</body>
+</html>
