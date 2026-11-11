@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Databricks 与国内云厂商报价对比</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --series: #2a78d6;
+    --warn: #b45309;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+      --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+      --warn: #fab219;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+    --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+    --warn: #fab219;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 64px; }
+  header h1 { font-size: 28px; margin: 0 0 8px; }
+  header p { margin: 0; color: var(--ink-2); }
+  section { background: var(--surface); border: 1px solid rgba(11,11,11,0.10); border-radius: 12px; padding: 24px; margin-top: 24px; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  .muted { color: var(--ink-2); font-size: 14px; }
+  .notice { border-left: 3px solid var(--warn); padding: 10px 14px; background: var(--page); border-radius: 6px; font-size: 14px; color: var(--ink-2); margin-top: 16px; }
+  .notice b { color: var(--warn); }
+  .note { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--grid); margin-top: 16px; padding-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  .table-wrap { overflow-x: auto; }
+  input[type="number"] {
+    width: 100%; min-width: 96px; padding: 6px 8px; font-size: 14px;
+    background: var(--page); color: var(--ink); border: 1px solid var(--axis); border-radius: 6px;
+  }
+  input[type="number"]:focus { outline: 2px solid var(--series); outline-offset: 1px; }
+  .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px 16px; margin-top: 12px; }
+  .grid-form label { font-size: 13px; color: var(--ink-2); display: grid; gap: 4px; }
+  .result { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 16px; color: var(--ink); }
+  .result.empty { color: var(--ink-3); font-weight: 400; }
+  .bar-row { display: grid; grid-template-columns: 150px 1fr 120px; gap: 12px; align-items: center; font-size: 14px; margin-top: 10px; }
+  .bar-track { height: 14px; background: var(--grid); border-radius: 0 4px 4px 0; position: relative; }
+  .bar-fill { height: 14px; background: var(--series); border-radius: 0 4px 4px 0; }
+  .bar-val { text-align: right; font-variant-numeric: tabular-nums; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--axis); color: var(--ink-2); }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Databricks 与国内云厂商报价对比</h1>
+    <p>计费模式对比，以及可填写单价的月成本估算。</p>
+  </header>
+
+  <section>
+    <div class="notice">
+      <b>单价来源与局限。</b>
+      Databricks：第三方聚合站 dbuwatch.com、finitizer 的数据（2026-11-09），官方价格页无法读取，单价为 AWS 美东 Jobs Compute，0.15 美元/DBU·时，不含云主机费。
+      阿里云：阿里云帮助文档中国地区 EMR Serverless Spark 单价，0.0503 美元/CU·时。
+      腾讯云：数据湖计算 DLC 计费概述，独享引擎按量 0.35 元/CU·时。
+      华为云：DLI 官方解决方案示例，5.6 元/小时对应 16 CU，推算 0.35 元/CU·时，不是标准价目表。
+      火山引擎：未找到公开单价，留空。开源自建：无软件费，服务器与存储价格留空。
+      存储单价、固定费用均未找到公开数据，留空。计费单位与计费项仍需以官网为准。
+    </div>
+  </section>
+
+  <!-- 1 Billing model comparison -->
+  <section>
+    <h2>一、计费模式对比</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>方案</th><th>计算计费单位</th><th>存储计费</th><th>调度 / 开发计费</th><th>计费特点</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>Databricks</b></td><td>DBU（按小时，按计算类型与层级不同费率）+ <b>云厂商虚拟机费用另计</b></td><td>由云厂商对象存储单独计费</td><td>包含在 DBU 中（Jobs / All-Purpose / SQL 费率不同）</td><td>两笔账：DBU 费 + 云主机费。费率随云平台与地区变化</td></tr>
+          <tr><td><b>阿里云</b></td><td>EMR Serverless Spark 按 CU·时计费（概念）</td><td>OSS 按量</td><td>DataWorks 按功能与任务量</td><td>计算与存储分开，Serverless 按量使用</td></tr>
+          <tr><td><b>腾讯云</b></td><td>DLC 按扫描量或 CU 计费（概念）</td><td>COS 按量</td><td>WeData 按功能与任务量</td><td>查询类可按扫描量计费，需关注扫描量控制</td></tr>
+          <tr><td><b>华为云</b></td><td>DLI 按 CU·时计费（概念）</td><td>OBS 按量</td><td>DataArts Studio 按功能与任务量</td><td>Serverless 按量，信创与合规方案价格需单独咨询</td></tr>
+          <tr><td><b>火山引擎</b></td><td>LAS、ByteHouse 按资源或用量（概念）</td><td>TOS 按量</td><td>DataLeap 按功能与任务量</td><td>实时分析实例按规格计费，与离线按量分开</td></tr>
+          <tr><td><b>开源自建</b></td><td>无软件授权费，按自有服务器或云主机的资源计费</td><td>自备存储或云对象存储</td><td>无</td><td>成本主要是硬件与人力，需要计入运维人员</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">计费单位的描述是模式层面的概括，不包含具体价格。</p>
+  </section>
+
+  <!-- 2 Cost estimator -->
+  <section>
+    <h2>二、月成本估算</h2>
+    <p class="muted">填写工作负载参数与各家单价，页面按统一公式计算月费用。留空的项目不计入。</p>
+
+    <h3 style="font-size:16px;margin:16px 0 0">工作负载</h3>
+    <div class="grid-form">
+      <label>每天计算时长（小时）<input type="number" id="hours" min="0" step="0.5" value="8" placeholder="例如 8"></label>
+      <label>每月运行天数<input type="number" id="days" min="0" step="1" value="22" placeholder="例如 22"></label>
+      <label>对象存储容量（TB）<input type="number" id="storage" min="0" step="0.1" value="10" placeholder="例如 10"></label>
+      <label>汇率（人民币 / 美元）<input type="number" id="fx" min="0" step="0.01" value="7.2"></label>
+      <label>计算规模（单位数，见下表说明）<input type="number" id="units" min="0" step="1" value="16" placeholder="例如 16"></label>
+    </div>
+
+    <h3 style="font-size:16px;margin:20px 0 0">单价（请从官网填入）</h3>
+    <div class="table-wrap" style="margin-top:8px">
+      <table id="price-table">
+        <thead>
+          <tr>
+            <th>方案</th>
+            <th>计算单价（元 / 单位·小时）</th>
+            <th>存储单价（元 / TB·月）</th>
+            <th>其他固定费用（元 / 月）</th>
+            <th class="num">月成本（估算）</th>
+          </tr>
+        </thead>
+        <tbody id="price-body"></tbody>
+      </table>
+    </div>
+    <p class="note">
+      已填入单价的来源见上方说明；人民币与美元已统一按上方汇率换算为人民币。<br>
+      公式：月成本 = 计算单价 × 计算规模 × 每天时长 × 每月天数 + 存储单价 × 容量 + 其他固定费用。<br>
+      "计算单位"按各家的计费单位理解：Databricks 填 DBU 数，阿里云 / 华为云 / 火山填 CU 数，腾讯云 DLC 填 CU 数或换算后的单位数。<br>
+      Databricks 的 DBU 费不含云主机费，请把云主机费填入"其他固定费用"或计入计算单价。
+    </p>
+  </section>
+
+  <!-- 3 Visual comparison -->
+  <section>
+    <h2>三、估算结果对比</h2>
+    <p class="muted">条形长度按最高估算值归一化，只有全部方案都填完整后才显示。</p>
+    <div id="bars" style="margin-top:8px"></div>
+    <p class="note">无数据时显示为"待填"，不显示 0，以免误读为免费。</p>
+  </section>
+
+  <!-- 4 Notes on comparing -->
+  <section>
+    <h2>四、对比时的注意事项</h2>
+    <ul class="muted" style="margin:8px 0 0 18px;padding:0">
+      <li>Databricks 是两笔账：DBU 费与云主机费。只看 DBU 单价会低估总成本。</li>
+      <li>折扣与承诺用量（包年包月、预留实例、预留 CU）会显著改变价格，应按同样的承诺方式对比。</li>
+      <li>各家计费单位不同（DBU、CU、扫描量），需要先用一个典型作业做实测，再换算成统一口径。</li>
+      <li>开源自建的人力与运维成本通常最大，需要按人员成本计入。</li>
+      <li>汇率、地域与税费会影响结果，不要直接跨地域比较。</li>
+    </ul>
+  </section>
+
+</main>
+
+<script>
+  // Vendor rows. Unit prices are in CNY per unit-hour unless noted.
+  // Sources are listed in the notice above; blank = no public price found.
+  // USD prices are converted with FX below so both currencies sit on one scale.
+  const FX_DEFAULT = 7.2; // CNY per USD, editable in the form
+  const vendors = [
+    { key: 'dbx', name: 'Databricks（DBU + 云主机）', unitUSD: 0.15, store: null, fixed: null },
+    { key: 'aliyun', name: '阿里云（EMR Serverless Spark）', unitUSD: 0.0503, store: null, fixed: null },
+    { key: 'tencent', name: '腾讯云（DLC 独享引擎）', unit: 0.35, store: null, fixed: null },
+    { key: 'huawei', name: '华为云（DLI）', unit: 0.35, store: null, fixed: null },
+    // estimate: used only when the unit price cell is blank. Placeholder at Alibaba-equivalent CU price, not an official quote.
+    { key: 'volc', name: '火山引擎（LAS）', unit: null, estimate: 0.35, store: null, fixed: null },
+    { key: 'opensource', name: '开源自建（服务器 + 云存储）', unit: null, estimate: 0.35, store: null, fixed: null },
+  ];
+
+  const val = id => {
+    const x = document.getElementById(id).value;
+    return x === '' ? null : Number(x);
+  };
+  const body = document.getElementById('price-body');
+  const inputs = {};
+
+  // Unit price shown in the input is already in CNY: USD sources x FX, CNY sources as-is.
+  const fxRate = () => { const x = val('fx'); return x === null ? FX_DEFAULT : x; };
+  const unitCNY = v => {
+    if (v.unitUSD !== undefined) return v.unitUSD * fxRate();
+    return v.unit ?? null;
+  };
+  const fill = (v, field) => {
+    const x = field === 'unit' ? unitCNY(v) : v[field];
+    return x === null || x === undefined ? '' : Number(x).toFixed(4);
+  };
+
+  vendors.forEach(v => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${v.name}</td>
+      <td><input type="number" min="0" step="0.0001" value="${fill(v, 'unit')}" data-key="${v.key}" data-field="unit" placeholder="待填"></td>
+      <td><input type="number" min="0" step="0.01" value="${fill(v, 'store')}" data-key="${v.key}" data-field="store" placeholder="待填"></td>
+      <td><input type="number" min="0" step="0.01" value="${fill(v, 'fixed')}" data-key="${v.key}" data-field="fixed" placeholder="待填"></td>
+      <td class="num"><span class="result empty" id="res-${v.key}">待填</span></td>`;
+    body.appendChild(tr);
+  });
+
+
+  function compute() {
+    const hours = val('hours'), days = val('days'), storage = val('storage'), units = val('units');
+    const results = {};
+
+    vendors.forEach(v => {
+      const unitEl = document.querySelector(`[data-key="${v.key}"][data-field="unit"]`);
+      const storeEl = document.querySelector(`[data-key="${v.key}"][data-field="store"]`);
+      const fixedEl = document.querySelector(`[data-key="${v.key}"][data-field="fixed"]`);
+      const el = document.getElementById(`res-${v.key}`);
+
+      // Unit price is required; a blank one falls back to the estimate row, marked as such.
+      let unit = unitEl.value === '' ? null : Number(unitEl.value);
+      let estimated = false;
+      if (unit === null && v.estimate) {
+        unit = v.estimate;
+        estimated = true;
+      }
+
+      // Workload is required; storage and fixed costs are optional and count as 0 when blank.
+      if (unit === null || hours === null || days === null || units === null) {
+        el.textContent = '待填';
+        el.className = 'result empty';
+        results[v.key] = null;
+        return;
+      }
+      const total =
+        unit * units * hours * days +
+        (storeEl.value === '' || storage === null ? 0 : Number(storeEl.value) * storage) +
+        (fixedEl.value === '' ? 0 : Number(fixedEl.value));
+
+      el.textContent = total.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) + ' 元' + (estimated ? '（估算）' : '');
+      el.className = 'result';
+      results[v.key] = total;
+    });
+
+    renderBars(results);
+  }
+
+  function renderBars(results) {
+    const bars = document.getElementById('bars');
+    bars.innerHTML = '';
+    const filled = vendors.filter(v => results[v.key] !== null);
+    if (filled.length < vendors.length) {
+      bars.innerHTML = '<p class="muted">待填写全部方案的单价后显示对比条形图。</p>';
+      return;
+    }
+    const max = Math.max(...filled.map(v => results[v.key]));
+    filled.forEach(v => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      const pct = max > 0 ? (results[v.key] / max * 100) : 0;
+      row.innerHTML = `
+        <span>${v.name}</span>
+        <div class="bar-track" title="${v.name}：${results[v.key].toFixed(0)} 元"><div class="bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+        <span class="bar-val">${results[v.key].toLocaleString('zh-CN', { maximumFractionDigits: 0 })} 元</span>`;
+      bars.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll('input[type="number"]').forEach(i => i.addEventListener('input', compute));
+  compute();
+</script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国内云厂商替代 Databricks - 总览</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --series: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+      --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+    --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 64px; }
+  header h1 { font-size: 28px; margin: 0 0 8px; }
+  header p { margin: 0; color: var(--ink-2); }
+  h2 { font-size: 18px; margin: 40px 0 12px; }
+  .muted { color: var(--ink-2); font-size: 14px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  a.card {
+    display: block; text-decoration: none; color: var(--ink);
+    background: var(--surface); border: 1px solid rgba(11,11,11,0.10);
+    border-radius: 12px; padding: 18px 20px;
+  }
+  a.card:hover, a.card:focus-visible { border-color: var(--series); outline: none; }
+  a.card h3 { font-size: 16px; margin: 0 0 6px; }
+  a.card p { margin: 0; font-size: 13px; color: var(--ink-2); }
+  a.card .file { display: block; margin-top: 10px; font-size: 12px; color: var(--ink-3); font-family: ui-monospace, Consolas, monospace; }
+  a.card.primary { border-color: var(--series); }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--axis); color: var(--ink-2); margin-bottom: 8px; }
+  .note { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--grid); margin-top: 40px; padding-top: 12px; }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>国内云厂商替代 Databricks</h1>
+    <p>点击下方卡片进入对应页面。所有产品名与价格来自训练知识或公开文档，未经官网最新核实，选型前请以官网为准。</p>
+  </header>
+
+  <h2>一、总览与对比</h2>
+  <div class="grid">
+    <a class="card primary" href="databricks-alternatives.html">
+      <span class="tag">总览</span>
+      <h3>方案对比</h3>
+      <p>五家方案的组件对应、评分热力图、综合得分与场景建议。</p>
+      <span class="file">databricks-alternatives.html</span>
+    </a>
+    <a class="card primary" href="databricks-price-compare.html">
+      <span class="tag">报价</span>
+      <h3>报价对比与成本估算</h3>
+      <p>计费模式对比，单价自动估算月成本，并按数据来源标注可信度。</p>
+      <span class="file">databricks-price-compare.html</span>
+    </a>
+  </div>
+
+  <h2>二、各厂商方案详解</h2>
+  <div class="grid">
+    <a class="card" href="databricks-alt-aliyun.html">
+      <span class="tag">阿里云</span>
+      <h3>阿里云湖仓方案</h3>
+      <p>EMR Serverless Spark、DLF、DataWorks、PAI，组件最全，接近一站式。</p>
+      <span class="file">databricks-alt-aliyun.html</span>
+    </a>
+    <a class="card" href="databricks-alt-tencent.html">
+      <span class="tag">腾讯云</span>
+      <h3>腾讯云湖仓方案</h3>
+      <p>DLC 统一查询入口，WeData 治理，轻量上手快。</p>
+      <span class="file">databricks-alt-tencent.html</span>
+    </a>
+    <a class="card" href="databricks-alt-huawei.html">
+      <span class="tag">华为云</span>
+      <h3>华为云湖仓方案</h3>
+      <p>DLI、DataArts、GaussDB(DWS)，信创与合规要求强的场景首选。</p>
+      <span class="file">databricks-alt-huawei.html</span>
+    </a>
+    <a class="card" href="databricks-alt-volcengine.html">
+      <span class="tag">火山引擎</span>
+      <h3>火山引擎湖仓方案</h3>
+      <p>LAS、ByteHouse、DataLeap，实时分析与高并发场景突出。</p>
+      <span class="file">databricks-alt-volcengine.html</span>
+    </a>
+    <a class="card" href="databricks-alt-opensource.html">
+      <span class="tag">开源自建</span>
+      <h3>开源自建湖仓方案</h3>
+      <p>Iceberg / Paimon、Spark / Flink、Gravitino、DolphinScheduler，无厂商锁定。</p>
+      <span class="file">databricks-alt-opensource.html</span>
+    </a>
+  </div>
+
+  <p class="note">页面之间使用相对路径链接，整个文件夹移动后仍可正常跳转。直接双击本文件即可在浏览器中打开。</p>
+
+</main>
+</body>
+</html>

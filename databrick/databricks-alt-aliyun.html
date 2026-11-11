@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>阿里云湖仓方案替代 Databricks - 方案与服务详解</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --series: #2a78d6;
+    --good: #006300; --bad: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+      --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+      --good: #0ca30c; --bad: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+    --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+    --good: #0ca30c; --bad: #e66767;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 64px; }
+  header h1 { font-size: 28px; margin: 0 0 8px; }
+  header p { margin: 0; color: var(--ink-2); }
+  section { background: var(--surface); border: 1px solid rgba(11,11,11,0.10); border-radius: 12px; padding: 24px; margin-top: 24px; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  h3 { font-size: 16px; margin: 0 0 8px; }
+  .muted { color: var(--ink-2); font-size: 14px; }
+  .note { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--grid); margin-top: 16px; padding-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { border: 1px solid rgba(11,11,11,0.10); border-radius: 10px; padding: 16px; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--axis); color: var(--ink-2); margin: 2px 4px 2px 0; }
+  ul, ol { margin: 8px 0 0 18px; padding: 0; color: var(--ink-2); font-size: 14px; }
+  li { margin: 4px 0; }
+  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: stretch; }
+  .layer { border: 1px solid var(--axis); border-radius: 8px; padding: 12px; font-size: 13px; }
+  .layer b { display: block; font-size: 14px; margin-bottom: 4px; }
+  .layer span { color: var(--ink-2); }
+  .layer.hl { border-color: var(--series); }
+  .pros b { color: var(--good); }
+  .cons b { color: var(--bad); }
+  .arch { overflow-x: auto; margin-top: 12px; }
+  .arch svg { width: 100%; min-width: 760px; height: auto; display: block; }
+  .arch-band { fill: var(--page); stroke: var(--grid); }
+  .arch-tag { fill: var(--ink-3); font: 600 12px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .arch-box { fill: var(--surface); stroke: var(--axis); stroke-width: 1; }
+  .arch-hl { stroke: var(--series); stroke-width: 1.5; }
+  .arch-t { fill: var(--ink); font: 600 13px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; text-anchor: middle; }
+  .arch-s { fill: var(--ink-2); font: 11px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; text-anchor: middle; }
+  .arch-line { stroke: var(--ink-3); stroke-width: 1.5; }
+  .arch-arrow { fill: var(--ink-3); }
+  .arch-dash { fill: none; stroke: var(--axis); stroke-width: 1; stroke-dasharray: 5 4; }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>阿里云湖仓方案替代 Databricks</h1>
+    <p>方案架构、服务详解、典型场景与迁移映射。产品名与功能来自训练知识，未联网核实，选型前请以阿里云官网最新文档为准。</p>
+  </header>
+
+  <!-- 1 Overview -->
+  <section>
+    <h2>一、方案定位</h2>
+    <p class="muted">阿里云的优势在于组件最全，可以拼出接近 Databricks 的一站式体验：存储用 OSS，元数据用 DLF，Spark 用 EMR Serverless，治理与调度用 DataWorks，ML 用 PAI。适合有一定规模、希望减少自建运维的大型数据团队。</p>
+    <div class="cards" style="margin-top:16px">
+      <div class="card"><h3>适合</h3><span class="tag">大型企业</span><span class="tag">Spark 重度用户</span><span class="tag">一站式湖仓 + ML</span></div>
+      <div class="card"><h3>不太适合</h3><span class="tag">小团队，只会 SQL</span><span class="tag">强信创要求</span></div>
+      <div class="card"><h3>核心难点</h3><span class="tag">产品线多，概念复杂</span><span class="tag">计费组合多</span></div>
+    </div>
+  </section>
+
+  <!-- 2 Architecture -->
+  <section>
+    <h2>二、方案架构</h2>
+    <p class="muted">从下到上分为五层，每层对应 Databricks 的一个能力。</p>
+    <div class="flow" style="margin-top:16px">
+      <div class="layer"><b>应用层</b><span>Quick BI 报表<br>DSW / 开发 Notebook<br>PAI 模型服务 EAS</span></div>
+      <div class="layer"><b>治理与调度</b><span>DataWorks<br>（开发、调度、质量、数据地图）</span></div>
+      <div class="layer hl"><b>计算层</b><span>EMR Serverless Spark<br>实时计算 Flink 版<br>MaxCompute / Hologres</span></div>
+      <div class="layer hl"><b>元数据层</b><span>DLF 数据湖构建<br>统一目录与权限</span></div>
+      <div class="layer"><b>存储层</b><span>OSS<br>Iceberg / Paimon 表格式</span></div>
+    </div>
+    <p class="note">计算层高亮表示与 Databricks 的 Spark + Unity Catalog 直接对应。元数据层与计算层通过 DLF 统一管理表与权限。</p>
+  <div class="arch" id="arch" role="img" aria-label="阿里云湖仓分层架构图"></div>
+  </section>
+
+  <!-- 3 Service detail -->
+  <section>
+    <h2>三、服务详解</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>能力</th><th>阿里云产品</th><th>定位与关键能力</th><th>计费方式（概念）</th><th>对应 Databricks</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>对象存储</td><td>OSS</td><td>海量非结构化存储，支持 HDFS 兼容访问（OSS-HDFS），可作为湖存储底座。</td><td>按存储量、请求次数、流量</td><td>云存储桶 / DBFS 底层</td></tr>
+          <tr><td>数据湖元数据</td><td>DLF（数据湖构建）</td><td>统一元数据、表格式管理与权限，兼容 Spark、Flink、Hive 等引擎。</td><td>按 API 调用与存储量</td><td>Unity Catalog</td></tr>
+          <tr><td>湖表格式</td><td>Iceberg / Paimon / Hudi（由引擎支持）</td><td>事务、时间旅行、Schema 演进。Paimon 在流批一体上较强。</td><td>随计算与存储计费</td><td>Delta Lake</td></tr>
+          <tr><td>Spark 计算</td><td>EMR Serverless Spark</td><td>免运维 Spark 作业运行，按资源用量弹性伸缩，可提交 SQL 与 Jar 任务。</td><td>按 CU 与时长计费</td><td>Databricks Jobs / SQL Warehouse 的计算部分</td></tr>
+          <tr><td>交互式 SQL 仓库</td><td>MaxCompute</td><td>大规模离线数仓，Serverless 形态，适合 T+1 批量分析。</td><td>按计算量或包年包月</td><td>SQL Warehouse（离线场景）</td></tr>
+          <tr><td>实时分析</td><td>Hologres</td><td>实时数仓，兼容 PostgreSQL 协议，可对接 MaxCompute 数据做高并发查询。</td><td>按实例规格计费</td><td>SQL Warehouse（低延迟场景）</td></tr>
+          <tr><td>流计算</td><td>实时计算 Flink 版</td><td>托管 Flink，支持 SQL 与 DataStream，可写入 Paimon、Hologres 等。</td><td>按 CU 计费</td><td>Structured Streaming</td></tr>
+          <tr><td>数据开发与调度</td><td>DataWorks</td><td>数据集成、开发、调度、数据质量、数据地图一体化。</td><td>按功能模块与任务量</td><td>Workflows / Jobs / Lakeflow</td></tr>
+          <tr><td>企业数据中台</td><td>Dataphin</td><td>面向企业的数据建模、指标、资产管理，适合中台建设。</td><td>按项目与规模</td><td>Unity Catalog 治理 + 建模能力</td></tr>
+          <tr><td>机器学习</td><td>PAI（Designer、DSW、EAS、灵骏）</td><td>可视化建模、交互式开发、模型部署与推理服务。</td><td>按资源与推理实例</td><td>Mosaic AI / MLflow</td></tr>
+          <tr><td>BI</td><td>Quick BI</td><td>拖拽式报表与仪表盘，支持多数据源。</td><td>按用户数或版本</td><td>Databricks AI/BI Dashboards</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">计费方式只描述模式，具体价格以阿里云官网价格页为准。</p>
+  </section>
+
+  <!-- 4 Typical solutions -->
+  <section>
+    <h2>四、典型方案</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>方案 A：离线 ETL 湖仓</h3>
+        <ol>
+          <li>DataWorks 数据集成，把业务库同步到 OSS。</li>
+          <li>EMR Serverless Spark 读写 Iceberg 表，DLF 管理元数据。</li>
+          <li>产出的汇总表写入 MaxCompute 或 Hologres。</li>
+          <li>DataWorks 调度与数据质量校验。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>方案 B：实时数据链路</h3>
+        <ol>
+          <li>消息队列接入事件数据。</li>
+          <li>实时计算 Flink 版做清洗与聚合，写入 Paimon。</li>
+          <li>Hologres 提供实时查询，Quick BI 展示看板。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>方案 C：湖仓 + ML</h3>
+        <ol>
+          <li>OSS 存放训练数据，DLF 统一管理特征表。</li>
+          <li>PAI DSW 做交互式开发，PAI 训练任务跑分布式训练。</li>
+          <li>PAI EAS 发布模型服务，结果回写数仓。</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 Migration mapping -->
+  <section>
+    <h2>五、从 Databricks 迁移的映射</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Databricks 概念</th><th>阿里云对应</th><th>迁移注意点</th></tr></thead>
+        <tbody>
+          <tr><td>Delta 表</td><td>Iceberg / Paimon 表</td><td>需要转换表格式，可用 Spark 的 CTAS 或 Delta Lake 的转换工具；注意 Delta 特有的 Liquid Clustering 等特性需要重新设计。</td></tr>
+          <tr><td>Unity Catalog</td><td>DLF</td><td>权限模型不完全相同，需要重建 Catalog 与授权策略。</td></tr>
+          <tr><td>Databricks Jobs</td><td>DataWorks 调度</td><td>任务依赖与参数传递方式不同，建议先用 DataWorks 的工作流重建 DAG。</td></tr>
+          <tr><td>Databricks SQL</td><td>MaxCompute / Hologres</td><td>SQL 方言有差异，函数需要逐一核对。</td></tr>
+          <tr><td>Notebook</td><td>DSW / DataWorks Notebook</td><td>Python 与 Spark 代码基本可复用，依赖库需要单独安装。</td></tr>
+          <tr><td>MLflow</td><td>PAI 实验与模型管理</td><td>实验记录格式不同，历史数据需要单独导出。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6 Pros and cons -->
+  <section>
+    <h2>六、优劣势</h2>
+    <div class="cards">
+      <div class="card pros">
+        <h3>优势</h3>
+        <ul>
+          <li><b>组件覆盖最全</b>，从存储到 ML 都有对应产品。</li>
+          <li><b>Serverless 弹性好</b>，EMR Serverless 与 MaxCompute 按量使用。</li>
+          <li><b>生态与文档成熟</b>，人才与案例较多。</li>
+        </ul>
+      </div>
+      <div class="card cons">
+        <h3>劣势</h3>
+        <ul>
+          <li><b>产品线多</b>，概念与计费组合复杂，初期学习成本高。</li>
+          <li><b>绑定较深</b>，DataWorks、DLF 等迁出成本相对高。</li>
+          <li><b>跨云治理</b>需要额外方案，没有等价的 Delta Sharing。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 Checklist -->
+  <section>
+    <h2>七、选型检查清单</h2>
+    <ol>
+      <li>现有 Spark 作业是否要大量改造？如果是，EMR Serverless 的兼容性需要 POC 验证。</li>
+      <li>是否需要 MaxCompute 的离线数仓能力，还是只用湖上查询？</li>
+      <li>实时场景的延迟要求是否需要 Hologres？</li>
+      <li>团队是否能接受 DataWorks 的学习成本？</li>
+      <li>计费组合按典型负载算一遍总成本，包括存储、计算与调度。</li>
+    </ol>
+    <p class="note">官网入口：aliyun.com（产品文档与价格页请以官网为准）。</p>
+  </section>
+
+</main>
+<script>
+  // Architecture diagram in the reference layout:
+  // sources -> consumers -> compute -> catalog -> formats / warehouse -> object storage.
+  const cfg = {
+  "sources": [
+    "MySQL / PG",
+    "SQL Server",
+    "Kafka",
+    "日志埋点",
+    "OSS 文件"
+  ],
+  "apps": [
+    {
+      "name": "经营报表",
+      "sub": "Quick BI"
+    },
+    {
+      "name": "特征标签",
+      "sub": "DataWorks / Dataphin"
+    },
+    {
+      "name": "数据科学",
+      "sub": "PAI"
+    },
+    {
+      "name": "AI 探索",
+      "sub": "DSW Notebook"
+    }
+  ],
+  "engineTitle": "数据湖计算（阿里云）",
+  "engines": [
+    {
+      "name": "EMR Serverless Spark",
+      "sub": "批处理 / ETL"
+    },
+    {
+      "name": "实时计算 Flink",
+      "sub": "流处理"
+    },
+    {
+      "name": "MaxCompute / Hologres",
+      "sub": "SQL 与实时查询"
+    }
+  ],
+  "catalog": "DLF 统一元数据目录",
+  "formats": [
+    {
+      "title": "开源文件格式",
+      "items": [
+        "Parquet",
+        "ORC",
+        "CSV"
+      ]
+    },
+    {
+      "title": "开源数据湖格式",
+      "items": [
+        "Iceberg",
+        "Paimon",
+        "Hudi"
+      ]
+    },
+    {
+      "title": "数据仓库",
+      "items": [
+        "MaxCompute",
+        "Hologres"
+      ]
+    }
+  ],
+  "storage": "OSS 对象存储",
+  "storageSub": [
+    "结构化数据",
+    "非结构化数据"
+  ]
+};
+  const ns = 'http://www.w3.org/2000/svg';
+  const W = 900, H = 640;
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  function el(tag, attrs, text) {
+    const n = document.createElementNS(ns, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text !== undefined) n.textContent = text;
+    svg.appendChild(n);
+    return n;
+  }
+
+  // Left column: data sources
+  el('rect', { class: 'arch-band', x: 10, y: 10, width: 140, height: 610, rx: 12 });
+  const srcTop = 40, srcBottom = 550;
+  const srcStep = (srcBottom - srcTop) / (cfg.sources.length - 1);
+  cfg.sources.forEach((name, i) => {
+    const y = srcTop + i * srcStep;
+    el('rect', { class: 'arch-box', x: 25, y, width: 110, height: 50, rx: 8 });
+    el('text', { class: 'arch-s', x: 80, y: y + 30 }, name);
+  });
+  el('line', { class: 'arch-line', x1: 150, y1: 195, x2: 164, y2: 195 });
+  el('polygon', { class: 'arch-arrow', points: '164,190 164,200 170,195' });
+
+  // Top band: consumers
+  el('rect', { class: 'arch-box', x: 170, y: 10, width: 720, height: 100, rx: 12 });
+  cfg.apps.forEach((app, i) => {
+    const cx = 170 + 180 * i + 90;
+    el('text', { class: 'arch-t', x: cx, y: 48 }, app.name);
+    el('text', { class: 'arch-s', x: cx, y: 74 }, app.sub);
+  });
+
+  // Compute engines (highlighted: maps to Spark / SQL Warehouse)
+  el('rect', { class: 'arch-box arch-hl', x: 170, y: 130, width: 720, height: 130, rx: 12 });
+  el('text', { class: 'arch-t', x: 530, y: 154 }, cfg.engineTitle);
+  const eN = cfg.engines.length, eGap = 16, eW = (688 - (eN - 1) * eGap) / eN;
+  cfg.engines.forEach((e, i) => {
+    const x = 186 + i * (eW + eGap), cx = x + eW / 2;
+    el('rect', { class: 'arch-box', x, y: 168, width: eW, height: 82, rx: 8 });
+    el('text', { class: 'arch-t', x: cx, y: 200 }, e.name);
+    el('text', { class: 'arch-s', x: cx, y: 224 }, e.sub);
+  });
+
+  // Unified catalog (highlighted: maps to Unity Catalog)
+  el('rect', { class: 'arch-box arch-hl', x: 170, y: 300, width: 720, height: 44, rx: 8 });
+  el('text', { class: 'arch-t', x: 530, y: 327 }, cfg.catalog);
+
+  // Formats and warehouse: three dashed groups, each arrow up into the catalog
+  const fGap = 16, fW = (700 - 2 * fGap) / 3;
+  cfg.formats.forEach((g, i) => {
+    const x = 180 + i * (fW + fGap), cx = x + fW / 2;
+    el('rect', { class: 'arch-dash', x, y: 372, width: fW, height: 130, rx: 10 });
+    el('text', { class: 'arch-t', x: cx, y: 396 }, g.title);
+    const m = g.items.length, iw = (fW - 20 - (m - 1) * 8) / m;
+    g.items.forEach((name, j) => {
+      const ix = x + 10 + j * (iw + 8);
+      el('rect', { class: 'arch-box', x: ix, y: 414, width: iw, height: 52, rx: 6 });
+      el('text', { class: 'arch-s', x: ix + iw / 2, y: 444 }, name);
+    });
+    el('line', { class: 'arch-line', x1: cx, y1: 372, x2: cx, y2: 352 });
+    el('polygon', { class: 'arch-arrow', points: `${cx - 5},352 ${cx + 5},352 ${cx},346` });
+  });
+
+  // Bottom: object storage with structured / unstructured data
+  el('rect', { class: 'arch-box', x: 170, y: 520, width: 720, height: 90, rx: 12 });
+  el('text', { class: 'arch-t', x: 530, y: 543 }, cfg.storage);
+  cfg.storageSub.forEach((name, i) => {
+    const x = 190 + i * 350;
+    el('rect', { class: 'arch-dash', x, y: 555, width: 330, height: 40, rx: 6 });
+    el('text', { class: 'arch-s', x: x + 165, y: 580 }, name);
+  });
+
+  document.getElementById('arch').appendChild(svg);
+</script>
+</main>
+</body>
+</html>

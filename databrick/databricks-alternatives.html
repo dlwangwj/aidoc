@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国内云厂商替代 Databricks 方案对比</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --ink-3: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --series: #2a78d6;
+    --ramp-1: #cde2fb;
+    --ramp-2: #9ec5f4;
+    --ramp-3: #6da7ec;
+    --ramp-4: #3987e5;
+    --ramp-5: #1c5cab;
+    --ramp-ink-light: #0b0b0b;
+    --ramp-ink-dark: #ffffff;
+    --good: #0ca30c;
+    --warn: #fab219;
+    --bad: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #f0efec;
+      --ink-2: #c3c2b7;
+      --ink-3: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --series: #3987e5;
+      --ramp-1: #1c3d6b;
+      --ramp-2: #225089;
+      --ramp-3: #2a64a8;
+      --ramp-4: #3987e5;
+      --ramp-5: #86b6ef;
+      --ramp-ink-light: #ffffff;
+      --ramp-ink-dark: #0b0b0b;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --ink-3: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --series: #3987e5;
+    --ramp-1: #1c3d6b;
+    --ramp-2: #225089;
+    --ramp-3: #2a64a8;
+    --ramp-4: #3987e5;
+    --ramp-5: #86b6ef;
+    --ramp-ink-light: #ffffff;
+    --ramp-ink-dark: #0b0b0b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    line-height: 1.6;
+  }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 64px; }
+  header h1 { font-size: 28px; margin: 0 0 8px; }
+  header p { margin: 0; color: var(--ink-2); }
+  section {
+    background: var(--surface);
+    border: 1px solid rgba(11,11,11,0.10);
+    border-radius: 12px;
+    padding: 24px;
+    margin-top: 24px;
+  }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  p, li { color: var(--ink); }
+  .muted { color: var(--ink-2); font-size: 14px; }
+  .note {
+    font-size: 13px;
+    color: var(--ink-3);
+    border-top: 1px solid var(--grid);
+    margin-top: 16px;
+    padding-top: 12px;
+  }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+  td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  /* Score heatmap: one hue, light to dark = low to high */
+  .heat { font-weight: 600; min-width: 48px; }
+  .s1 { background: var(--ramp-1); color: var(--ramp-ink-light); }
+  .s2 { background: var(--ramp-2); color: var(--ramp-ink-light); }
+  .s3 { background: var(--ramp-3); color: var(--ramp-ink-light); }
+  .s4 { background: var(--ramp-4); color: var(--ramp-ink-light); }
+  .s5 { background: var(--ramp-5); color: var(--ramp-ink-dark); }
+
+  /* Horizontal bar chart: single series, thin marks */
+  .bars { display: grid; gap: 12px; }
+  .bar-row { display: grid; grid-template-columns: 110px 1fr 56px; align-items: center; gap: 12px; font-size: 14px; }
+  .bar-track { position: relative; height: 14px; background: var(--grid); border-radius: 0 4px 4px 0; }
+  .bar-fill { height: 14px; background: var(--series); border-radius: 0 4px 4px 0; }
+  .bar-val { font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; }
+  .axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-3); margin: 6px 0 0 122px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+  .card { border: 1px solid rgba(11,11,11,0.10); border-radius: 10px; padding: 16px; }
+  .card h3 { margin-top: 0; }
+  .tag {
+    display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px;
+    border: 1px solid var(--axis); color: var(--ink-2); margin: 2px 4px 2px 0;
+  }
+  ul { margin: 8px 0 0 18px; padding: 0; color: var(--ink-2); font-size: 14px; }
+  li { margin: 4px 0; }
+  .pros { color: var(--ink); }
+  .pros b { color: var(--good); }
+  .cons b { color: var(--bad); }
+  .legend { display: flex; gap: 16px; align-items: center; font-size: 12px; color: var(--ink-2); margin-top: 12px; flex-wrap: wrap; }
+  .legend span.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="viz-root">
+<main>
+
+  <header>
+    <h1>国内云厂商替代 Databricks 方案对比</h1>
+    <p>对比阿里云、腾讯云、华为云、火山引擎，以及开源自建方案在湖仓一体各能力上的差异。</p>
+  </header>
+
+  <!-- 1. Overview -->
+  <section>
+    <h2>一、方案概览</h2>
+    <p class="muted">Databricks 的核心是湖仓一体：数据湖存储 + Spark 计算 + 统一目录治理 + 数据工程调度 + ML + BI。国内没有同名的一站式产品，通常由各厂商托管组件拼装，或用开源组件自建。</p>
+    <div class="cards" style="margin-top:16px">
+      <div class="card">
+        <h3>阿里云</h3>
+        <span class="tag">组件最全</span><span class="tag">接近一站式</span>
+        <p class="muted">EMR Serverless Spark + DLF + DataWorks + PAI。功能覆盖面最广，组件之间的集成度较高，适合大型数据团队。</p>
+      </div>
+      <div class="card">
+        <h3>腾讯云</h3>
+        <span class="tag">轻量</span><span class="tag">上手快</span>
+        <p class="muted">DLC 做湖仓查询与 Spark，WeData 做开发治理，TI-ONE 做机器学习。组件较少，学习成本低，适合以 SQL 为主的团队。</p>
+      </div>
+      <div class="card">
+        <h3>华为云</h3>
+        <span class="tag">信创首选</span><span class="tag">国产硬件</span>
+        <p class="muted">DLI + DataArts Studio + ModelArts。对鲲鹏、昇腾等国产硬件兼容性较好，等保与信创要求强的行业优先考虑。</p>
+      </div>
+      <div class="card">
+        <h3>火山引擎</h3>
+        <span class="tag">实时分析强</span><span class="tag">字节系</span>
+        <p class="muted">LAS 湖仓 + DataLeap + ByteHouse。在实时分析和大规模数据平台方面经验较多，ByteHouse 是其主要优势之一。</p>
+      </div>
+      <div class="card">
+        <h3>开源自建</h3>
+        <span class="tag">成本可控</span><span class="tag">运维重</span>
+        <p class="muted">Iceberg / Paimon + Spark / Flink / Trino + StarRocks / Doris + Gravitino + DolphinScheduler + MLflow，部署在 K8s 上。无厂商绑定，但需要专职平台团队。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. Component mapping -->
+  <section>
+    <h2>二、组件对应关系</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Databricks 能力</th>
+            <th>阿里云</th>
+            <th>腾讯云</th>
+            <th>华为云</th>
+            <th>火山引擎</th>
+            <th>开源自建</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><b>湖存储 / Delta Lake</b></td><td>OSS + Iceberg / Paimon / Hudi</td><td>COS + Iceberg</td><td>OBS + DataArts Lake</td><td>TOS + LAS 湖仓</td><td>对象存储 + Iceberg / Paimon</td></tr>
+          <tr><td><b>统一元数据 / Unity Catalog</b></td><td>DLF</td><td>DLC 元数据</td><td>DataArts 数据目录</td><td>LAS 元数据</td><td>Gravitino / Hive Metastore / Iceberg REST Catalog</td></tr>
+          <tr><td><b>Spark 计算</b></td><td>EMR Serverless Spark</td><td>DLC（Spark 引擎）</td><td>DLI</td><td>LAS Spark</td><td>Spark</td></tr>
+          <tr><td><b>SQL 仓库 / Photon</b></td><td>MaxCompute、Hologres</td><td>DLC、TCHouse</td><td>GaussDB(DWS)、DLI</td><td>ByteHouse、LAS</td><td>StarRocks / Doris、Trino</td></tr>
+          <tr><td><b>数据工程 / Jobs</b></td><td>DataWorks、Dataphin</td><td>WeData</td><td>DataArts Studio</td><td>DataLeap</td><td>DolphinScheduler</td></tr>
+          <tr><td><b>流计算</b></td><td>实时计算 Flink 版</td><td>Oceanus（Flink）</td><td>DLI（Flink）</td><td>火山 Flink</td><td>Flink</td></tr>
+          <tr><td><b>机器学习 / MLflow</b></td><td>PAI</td><td>TI-ONE</td><td>ModelArts</td><td>火山机器学习平台</td><td>MLflow + K8s</td></tr>
+          <tr><td><b>笔记本</b></td><td>DataWorks / DSW</td><td>WeData Notebook</td><td>ModelArts Notebook</td><td>对应平台 Notebook</td><td>Jupyter</td></tr>
+          <tr><td><b>SQL 网关</b></td><td>EMR 网关</td><td>DLC 接口</td><td>DLI 接口</td><td>LAS 接口</td><td>Apache Kyuubi</td></tr>
+          <tr><td><b>BI</b></td><td>Quick BI</td><td>腾讯云 BI</td><td>华为云 BI</td><td>火山 BI</td><td>Superset / Metabase 等</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">注：产品名与功能均来自训练知识，未联网核实，部分产品可能已更名或调整，选型前请以厂商官网最新文档为准。</p>
+  </section>
+
+  <!-- 3. Scores: heatmap -->
+  <section>
+    <h2>三、能力评分热力图（1–5 分）</h2>
+    <p class="muted">评分为主观估计，用于快速比较相对位置，不代表实测结果。颜色深浅表示分数高低，同一色相的明度梯度。</p>
+    <div class="table-wrap">
+      <table id="heat-table">
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th class="num">阿里云</th>
+            <th class="num">腾讯云</th>
+            <th class="num">华为云</th>
+            <th class="num">火山引擎</th>
+            <th class="num">开源自建</th>
+          </tr>
+        </thead>
+        <tbody id="heat-body"></tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><span class="sw" style="background:var(--ramp-1)"></span>低</span>
+      <span><span class="sw" style="background:var(--ramp-3)"></span>中</span>
+      <span><span class="sw" style="background:var(--ramp-5)"></span>高</span>
+    </div>
+  </section>
+
+  <!-- 4. Scores: average bar chart -->
+  <section>
+    <h2>四、综合得分（各维度平均）</h2>
+    <p class="muted">单一系列，统一使用一种颜色。排序仅为阅读方便，颜色不随排名变化。</p>
+    <div class="bars" id="avg-bars" style="margin-top:16px"></div>
+    <div class="axis"><span>0</span><span>2.5</span><span>5</span></div>
+    <p class="note">综合得分 = 十个维度的简单平均。未加权，实际选型应按自身权重调整。</p>
+  </section>
+
+  <!-- 5. Pros and cons -->
+  <section>
+    <h2>五、优劣势详解</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>阿里云</h3>
+        <ul class="pros">
+          <li><b>优：</b>组件覆盖最全，DLF + EMR + DataWorks 集成紧密；Serverless 计费按量，弹性好。</li>
+          <li><b>优：</b>生态与文档最成熟，社区与人才储备多。</li>
+        </ul>
+        <ul class="cons">
+          <li><b>劣：</b>组件多，产品线之间的概念和计费方式较复杂，初期学习成本高。</li>
+          <li><b>劣：</b>一站式绑定较深，迁出成本相对高。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>腾讯云</h3>
+        <ul class="pros">
+          <li><b>优：</b>DLC 以 SQL 为入口，对分析师友好，上手快。</li>
+          <li><b>优：</b>组件数量少，运维负担相对轻。</li>
+        </ul>
+        <ul class="cons">
+          <li><b>劣：</b>复杂 Spark 作业、流计算和 ML 的深度能力弱于阿里云。</li>
+          <li><b>劣：</b>数据治理和血缘能力需要额外评估。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>华为云</h3>
+        <ul class="pros">
+          <li><b>优：</b>信创适配最完整，国产芯片、操作系统、数据库兼容性好。</li>
+          <li><b>优：</b>满足等保 2.0 与行业监管的要求较直接。</li>
+        </ul>
+        <ul class="cons">
+          <li><b>劣：</b>部分组件在社区与第三方生态的覆盖上弱于阿里云。</li>
+          <li><b>劣：</b>DataArts 与 ModelArts 的体验割裂感较明显，需要评估。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>火山引擎</h3>
+        <ul class="pros">
+          <li><b>优：</b>ByteHouse 在实时分析与高并发查询上有较多实践。</li>
+          <li><b>优：</b>适合互联网类高吞吐、低延迟的业务场景。</li>
+        </ul>
+        <ul class="cons">
+          <li><b>劣：</b>面向传统企业的治理、合规与信创套件相对少。</li>
+          <li><b>劣：</b>公开资料与行业案例相对少，POC 时要重点验证。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>开源自建</h3>
+        <ul class="pros">
+          <li><b>优：</b>无厂商锁定，表格式和引擎可随时替换。</li>
+          <li><b>优：</b>成本可控，可以按需精细调优，国产化部署也较灵活。</li>
+        </ul>
+        <ul class="cons">
+          <li><b>劣：</b>需要专职平台团队维护 K8s、组件升级、故障排查。</li>
+          <li><b>劣：</b>组件之间的集成需要自行打通，前期投入大。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6. Scenarios -->
+  <section>
+    <h2>六、场景适配建议</h2>
+    <table>
+      <thead>
+        <tr><th>场景</th><th>首选</th><th>备选</th><th>理由</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>大型企业，要一站式湖仓 + ML</td><td>阿里云</td><td>开源自建</td><td>组件最全，集成度高，团队规模大时管理成本可以摊薄。</td></tr>
+        <tr><td>以 SQL 为主的分析团队，快速上线</td><td>腾讯云</td><td>阿里云</td><td>DLC 入口统一，学习成本低。</td></tr>
+        <tr><td>信创、等保、政企、国央企</td><td>华为云</td><td>阿里云（信创版）</td><td>国产软硬件适配最完整，合规材料更齐全。</td></tr>
+        <tr><td>高并发实时分析、互联网业务</td><td>火山引擎</td><td>阿里云 Hologres</td><td>ByteHouse 在实时场景的经验较多。</td></tr>
+        <tr><td>有平台工程团队，要避免厂商锁定</td><td>开源自建</td><td>混合：存储自建 + 计算托管</td><td>表格式与引擎可替换，长期成本可控。</td></tr>
+        <tr><td>Spark 重度用户，迁移成本敏感</td><td>阿里云 EMR Serverless</td><td>开源自建</td><td>Spark 兼容性高，代码迁移量小。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 7. Differences -->
+  <section>
+    <h2>七、与 Databricks 的主要差距</h2>
+    <ul>
+      <li><b>跨云治理与数据共享：</b>Unity Catalog 与 Delta Sharing 的跨云能力，国内厂商暂无完全对等的产品，需要自建或用 Gravitino 等开源方案补充。</li>
+      <li><b>AI 与 Agent 集成：</b>Databricks 的 Mosaic AI、向量检索与模型服务集成度高；国内需要分别使用 PAI / TI-ONE / ModelArts 拼接。</li>
+      <li><b>开发体验统一性：</b>Databricks 的 Notebook、Jobs、Pipeline 在同一界面，国内多数方案存在多产品跳转。</li>
+      <li><b>合规优势：</b>等保 2.0、数据不出境、信创要求方面，国内方案通常更容易满足，这也是多数企业选择它们的主要原因。</li>
+    </ul>
+  </section>
+
+  <!-- 8. Next steps -->
+  <section>
+    <h2>八、落地步骤</h2>
+    <ol style="margin:8px 0 0 18px; padding:0; color:var(--ink-2); font-size:14px;">
+      <li style="margin:6px 0"><b>明确主要负载：</b>批处理 ETL、实时流、即席查询，还是 ML，不同负载指向不同组件。</li>
+      <li style="margin:6px 0"><b>做 POC：</b>挑一条最典型的 ETL 链路，在 2–3 家厂商上跑通，比较性能、成本和开发体验。</li>
+      <li style="margin:6px 0"><b>评估团队能力：</b>会 Spark 的团队可以优先考虑开源自建或 EMR Serverless；只会 SQL 的团队更适合 DLC、MaxCompute 等托管服务。</li>
+      <li style="margin:6px 0"><b>核算总成本：</b>托管方案按量计费，自建方案需把人力运维成本计入。</li>
+    </ol>
+  </section>
+
+</main>
+</div>
+
+<script>
+  // Dimension scores, 1-5, subjective estimates.
+  // Column order: 阿里云, 腾讯云, 华为云, 火山引擎, 开源自建
+  const vendors = ['阿里云', '腾讯云', '华为云', '火山引擎', '开源自建'];
+  const dims = [
+    { name: '湖存储与表格式', s: [5, 4, 4, 4, 4] },
+    { name: '元数据与治理',   s: [5, 4, 4, 3, 3] },
+    { name: 'Spark 计算',     s: [5, 4, 4, 4, 5] },
+    { name: 'SQL 与 BI 体验', s: [4, 4, 3, 4, 4] },
+    { name: '数据工程与调度', s: [5, 4, 4, 3, 3] },
+    { name: '流处理',         s: [5, 4, 4, 4, 5] },
+    { name: 'AI / ML 集成',   s: [5, 3, 4, 3, 3] },
+    { name: '信创与合规',     s: [3, 3, 5, 3, 4] },
+    { name: '托管省运维',     s: [4, 4, 4, 4, 1] },
+    { name: '开源可控性',     s: [2, 2, 2, 2, 5] },
+  ];
+
+  // Heatmap: 1-5 mapped to one hue ramp (light -> dark)
+  const body = document.getElementById('heat-body');
+  dims.forEach(d => {
+    const tr = document.createElement('tr');
+    const th = document.createElement('td');
+    th.textContent = d.name;
+    tr.appendChild(th);
+    d.s.forEach((v, i) => {
+      const td = document.createElement('td');
+      td.className = 'num heat s' + v;
+      td.textContent = v;
+      td.title = `${d.name} · ${vendors[i]}：${v} 分`;
+      tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+
+  // Average bars: one series, one color, sorted by value for reading
+  const avgs = vendors.map((name, i) => {
+    const sum = dims.reduce((acc, d) => acc + d.s[i], 0);
+    return { name, avg: sum / dims.length };
+  }).sort((a, b) => b.avg - a.avg);
+
+  const wrap = document.getElementById('avg-bars');
+  avgs.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <span>${r.name}</span>
+      <div class="bar-track" title="${r.name}：${r.avg.toFixed(1)} 分">
+        <div class="bar-fill" style="width:${(r.avg / 5 * 100).toFixed(1)}%"></div>
+      </div>
+      <span class="bar-val">${r.avg.toFixed(1)}</span>`;
+    wrap.appendChild(row);
+  });
+</script>
+</body>
+</html>

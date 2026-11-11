@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>开源自建湖仓方案替代 Databricks - 方案与服务详解</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #fcfcfb;
+    --ink: #0b0b0b; --ink-2: #52514e; --ink-3: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --series: #2a78d6;
+    --good: #006300; --bad: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #0d0d0d; --surface: #1a1a19;
+      --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+      --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+      --good: #0ca30c; --bad: #e66767;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19;
+    --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #898781;
+    --grid: #2c2c2a; --axis: #383835; --series: #3987e5;
+    --good: #0ca30c; --bad: #e66767;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.6; }
+  main { max-width: 1120px; margin: 0 auto; padding: 40px 24px 64px; }
+  header h1 { font-size: 28px; margin: 0 0 8px; }
+  header p { margin: 0; color: var(--ink-2); }
+  section { background: var(--surface); border: 1px solid rgba(11,11,11,0.10); border-radius: 12px; padding: 24px; margin-top: 24px; }
+  h2 { font-size: 20px; margin: 0 0 12px; }
+  h3 { font-size: 16px; margin: 0 0 8px; }
+  .muted { color: var(--ink-2); font-size: 14px; }
+  .note { font-size: 13px; color: var(--ink-3); border-top: 1px solid var(--grid); margin-top: 16px; padding-top: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+  th { color: var(--ink-2); font-weight: 600; }
+  .table-wrap { overflow-x: auto; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { border: 1px solid rgba(11,11,11,0.10); border-radius: 10px; padding: 16px; }
+  .tag { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--axis); color: var(--ink-2); margin: 2px 4px 2px 0; }
+  ul, ol { margin: 8px 0 0 18px; padding: 0; color: var(--ink-2); font-size: 14px; }
+  li { margin: 4px 0; }
+  .flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; align-items: stretch; }
+  .layer { border: 1px solid var(--axis); border-radius: 8px; padding: 12px; font-size: 13px; }
+  .layer b { display: block; font-size: 14px; margin-bottom: 4px; }
+  .layer span { color: var(--ink-2); }
+  .layer.hl { border-color: var(--series); }
+  .pros b { color: var(--good); }
+  .cons b { color: var(--bad); }
+  .arch { overflow-x: auto; margin-top: 12px; }
+  .arch svg { width: 100%; min-width: 760px; height: auto; display: block; }
+  .arch-band { fill: var(--page); stroke: var(--grid); }
+  .arch-tag { fill: var(--ink-3); font: 600 12px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .arch-box { fill: var(--surface); stroke: var(--axis); stroke-width: 1; }
+  .arch-hl { stroke: var(--series); stroke-width: 1.5; }
+  .arch-t { fill: var(--ink); font: 600 13px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; text-anchor: middle; }
+  .arch-s { fill: var(--ink-2); font: 11px system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; text-anchor: middle; }
+  .arch-line { stroke: var(--ink-3); stroke-width: 1.5; }
+  .arch-arrow { fill: var(--ink-3); }
+  .arch-dash { fill: none; stroke: var(--axis); stroke-width: 1; stroke-dasharray: 5 4; }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>开源自建湖仓方案替代 Databricks</h1>
+    <p>方案架构、开源组件选型、典型场景与迁移映射。组件信息来自训练知识，版本与社区状态请以各项目官网为准。</p>
+  </header>
+
+  <!-- 1 Overview -->
+  <section>
+    <h2>一、方案定位</h2>
+    <p class="muted">开源自建的核心是用开放表格式与开源引擎替代托管服务，避免厂商绑定。存储用对象存储，表格式用 Iceberg 或 Paimon，计算用 Spark、Flink、Trino，目录用 Gravitino 或 Iceberg REST Catalog，调度用 DolphinScheduler，全部部署在 Kubernetes 上。前期投入大，但长期迁移自由度最高。</p>
+    <div class="cards" style="margin-top:16px">
+      <div class="card"><h3>适合</h3><span class="tag">有平台工程团队</span><span class="tag">要避免厂商锁定</span><span class="tag">Spark 重度用户</span></div>
+      <div class="card"><h3>不太适合</h3><span class="tag">小团队无运维能力</span><span class="tag">需要快速上线</span></div>
+      <div class="card"><h3>核心难点</h3><span class="tag">组件集成工作量</span><span class="tag">长期运维成本</span></div>
+    </div>
+  </section>
+
+  <!-- 2 Architecture -->
+  <section>
+    <h2>二、方案架构</h2>
+    <p class="muted">所有组件以容器形式运行在 Kubernetes 上，通过开放接口互通。</p>
+    <div class="flow" style="margin-top:16px">
+      <div class="layer"><b>应用层</b><span>Superset / Metabase<br>Jupyter / MLflow</span></div>
+      <div class="layer"><b>调度与治理</b><span>DolphinScheduler<br>Gravitino（统一目录）<br>dbt（数据转换）</span></div>
+      <div class="layer hl"><b>计算层</b><span>Spark（批）<br>Flink（流）<br>Trino / Kyuubi（交互查询）<br>StarRocks / Doris（OLAP）</span></div>
+      <div class="layer hl"><b>元数据层</b><span>Iceberg REST Catalog<br>或 Hive Metastore<br>Apache Polaris（可选）</span></div>
+      <div class="layer"><b>存储层</b><span>S3 兼容对象存储<br>（MinIO、Ceph 或云厂商对象存储）<br>Iceberg / Paimon 表格式</span></div>
+    </div>
+    <p class="note">计算层高亮表示与 Databricks 的 Spark 和 SQL Warehouse 对应。K8s 是底座，负责弹性调度与隔离。</p>
+  <div class="arch" id="arch" role="img" aria-label="开源自建湖仓分层架构图"></div>
+  </section>
+
+  <!-- 3 Service detail -->
+  <section>
+    <h2>三、组件详解</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>能力</th><th>开源组件</th><th>定位与关键能力</th><th>运维要点</th><th>对应 Databricks</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>对象存储</td><td>MinIO、Ceph、HDFS</td><td>提供 S3 兼容接口，作为湖存储底座。</td><td>容量规划、副本与纠删码配置、备份</td><td>云存储桶 / DBFS 底层</td></tr>
+          <tr><td>湖表格式</td><td>Apache Iceberg、Apache Paimon、Apache Hudi、Delta Lake</td><td>提供事务、时间旅行与 Schema 演进。Iceberg 生态最广，Paimon 在流批一体上较强。</td><td>小文件合并、快照过期</td><td>Delta Lake</td></tr>
+          <tr><td>批计算</td><td>Apache Spark</td><td>与 Databricks 的 Spark API 兼容性最高，迁移代码改动最小。</td><td>Spark Operator 部署、资源队列</td><td>Databricks Runtime Spark</td></tr>
+          <tr><td>流计算</td><td>Apache Flink</td><td>低延迟流处理，支持 SQL 与 DataStream，可写入 Iceberg、Paimon。</td><td>Checkpoint 配置、状态后端</td><td>Structured Streaming</td></tr>
+          <tr><td>交互查询</td><td>Trino、Apache Kyuubi</td><td>Trino 做联邦查询；Kyuubi 提供兼容 Spark 的 SQL 网关。</td><td>资源组配置、权限集成</td><td>SQL Warehouse</td></tr>
+          <tr><td>OLAP 加速</td><td>StarRocks、Apache Doris、ClickHouse</td><td>面向 BI 的高性能分析，可直接查询湖表。</td><td>副本与分片、导入任务</td><td>SQL Warehouse（低延迟场景）</td></tr>
+          <tr><td>统一目录</td><td>Apache Gravitino、Iceberg REST Catalog、Polaris</td><td>统一管理多引擎的元数据与权限，是 Unity Catalog 的主要替代。</td><td>权限模型设计、高可用部署</td><td>Unity Catalog</td></tr>
+          <tr><td>调度</td><td>Apache DolphinScheduler、Apache Airflow</td><td>可视化工作流调度，DolphinScheduler 国内社区活跃。</td><td>任务依赖管理、告警</td><td>Databricks Jobs / Workflows</td></tr>
+          <tr><td>数据转换</td><td>dbt</td><td>以 SQL 管理数据转换与测试，适合分析工程。</td><td>模型版本管理、测试用例</td><td>Lakeflow 转换部分</td></tr>
+          <tr><td>机器学习</td><td>MLflow、Kubeflow、Ray</td><td>实验管理、模型注册与分布式训练。</td><td>GPU 调度、模型服务部署</td><td>MLflow / Mosaic AI</td></tr>
+          <tr><td>交互开发</td><td>JupyterHub</td><td>多用户 Notebook 环境，可与 Spark 集成。</td><td>镜像管理、资源配额</td><td>Databricks Notebook</td></tr>
+          <tr><td>BI</td><td>Apache Superset、Metabase</td><td>开源 BI，支持多数据源与仪表盘。</td><td>权限同步、缓存配置</td><td>Databricks AI/BI Dashboards</td></tr>
+          <tr><td>容器运行时</td><td>Kubernetes</td><td>统一调度上述组件，提供弹性与隔离。</td><td>集群运维、监控、升级</td><td>Databricks 托管集群</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">版本与社区活跃度变化较快，选型前请查看各项目的最新版本与维护状态。</p>
+  </section>
+
+  <!-- 4 Typical solutions -->
+  <section>
+    <h2>四、典型方案</h2>
+    <div class="cards">
+      <div class="card">
+        <h3>方案 A：开源离线湖仓</h3>
+        <ol>
+          <li>DolphinScheduler 调度数据同步任务，写入 Iceberg 表。</li>
+          <li>Spark 做 ETL，Gravitino 管理元数据与权限。</li>
+          <li>StarRocks 承接汇总表查询，Superset 展示报表。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>方案 B：开源实时链路</h3>
+        <ol>
+          <li>消息队列接入事件数据。</li>
+          <li>Flink 清洗聚合，写入 Paimon 表。</li>
+          <li>StarRocks 或 Doris 实时查询，支撑看板。</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>方案 C：湖上 ML 平台</h3>
+        <ol>
+          <li>Iceberg 表存放特征数据。</li>
+          <li>JupyterHub 做交互开发，Ray 或 Kubeflow 做分布式训练。</li>
+          <li>MLflow 管理实验与模型，模型服务部署在 K8s 上。</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 Migration mapping -->
+  <section>
+    <h2>五、从 Databricks 迁移的映射</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Databricks 概念</th><th>开源对应</th><th>迁移注意点</th></tr></thead>
+        <tbody>
+          <tr><td>Delta 表</td><td>Iceberg / Paimon 表</td><td>可以用 Spark 批量转换；Delta 的部分特性在 Iceberg 中需要替代实现。</td></tr>
+          <tr><td>Unity Catalog</td><td>Gravitino / Iceberg REST Catalog</td><td>权限与审计需要自行设计，Unity Catalog 的数据共享能力需要额外开发。</td></tr>
+          <tr><td>Databricks Jobs</td><td>DolphinScheduler</td><td>任务迁移需要逐个重建，依赖关系需要重新梳理。</td></tr>
+          <tr><td>SQL Warehouse</td><td>Trino / StarRocks / Doris</td><td>SQL 方言需要核对，窗口函数与时间函数最容易出问题。</td></tr>
+          <tr><td>Notebook</td><td>JupyterHub</td><td>PySpark 代码基本可复用，需要配置 Spark 连接。</td></tr>
+          <tr><td>MLflow</td><td>MLflow 自建</td><td>可以直接沿用 MLflow，历史实验需要迁移数据库。</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6 Pros and cons -->
+  <section>
+    <h2>六、优劣势</h2>
+    <div class="cards">
+      <div class="card pros">
+        <h3>优势</h3>
+        <ul>
+          <li><b>无厂商锁定</b>，表格式与引擎都可以替换。</li>
+          <li><b>成本可控</b>，可以精细调优资源与存储。</li>
+          <li><b>国产化部署灵活</b>，可以运行在任何符合要求的硬件上。</li>
+        </ul>
+      </div>
+      <div class="card cons">
+        <h3>劣势</h3>
+        <ul>
+          <li><b>运维重</b>，需要专职团队维护 K8s 与各组件的升级。</li>
+          <li><b>集成工作量大</b>，组件间的权限、监控与审计需要自行打通。</li>
+          <li><b>前期投入高</b>，人力成本需要计入总成本。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 Checklist -->
+  <section>
+    <h2>七、选型检查清单</h2>
+    <ol>
+      <li>团队是否有 K8s 与大数据运维经验？没有的话，建议先用托管服务。</li>
+      <li>是否需要统一的权限与审计？如果需要，Gravitino 的成熟度需要 POC 验证。</li>
+      <li>表格式选 Iceberg 还是 Paimon，取决于流批比例与生态偏好。</li>
+      <li>BI 与 OLAP 选型是否满足并发与延迟要求？</li>
+      <li>计算人力成本与运维成本，与托管方案对比总成本。</li>
+    </ol>
+    <p class="note">项目主页：iceberg.apache.org、paimon.apache.org、gravitino.apache.org、starrocks.io、doris.apache.org、dolphinscheduler.apache.org（版本与维护状态请以项目官网为准）。</p>
+  </section>
+
+</main>
+<script>
+  // Architecture diagram in the reference layout:
+  // sources -> consumers -> compute -> catalog -> formats / warehouse -> object storage.
+  const cfg = {
+  "sources": [
+    "MySQL / PG",
+    "SQL Server",
+    "Kafka",
+    "日志埋点",
+    "S3 兼容文件"
+  ],
+  "apps": [
+    {
+      "name": "经营报表",
+      "sub": "Superset"
+    },
+    {
+      "name": "特征标签",
+      "sub": "dbt 指标"
+    },
+    {
+      "name": "数据科学",
+      "sub": "MLflow / Ray"
+    },
+    {
+      "name": "AI 探索",
+      "sub": "JupyterHub"
+    }
+  ],
+  "engineTitle": "计算引擎（自建）",
+  "engines": [
+    {
+      "name": "Spark",
+      "sub": "批处理 / ETL"
+    },
+    {
+      "name": "Flink",
+      "sub": "流处理"
+    },
+    {
+      "name": "Trino / Kyuubi",
+      "sub": "交互查询"
+    }
+  ],
+  "catalog": "Gravitino / Iceberg REST Catalog",
+  "formats": [
+    {
+      "title": "开源文件格式",
+      "items": [
+        "Parquet",
+        "ORC",
+        "CSV"
+      ]
+    },
+    {
+      "title": "开源数据湖格式",
+      "items": [
+        "Iceberg",
+        "Paimon",
+        "Hudi"
+      ]
+    },
+    {
+      "title": "OLAP 加速",
+      "items": [
+        "StarRocks",
+        "Doris"
+      ]
+    }
+  ],
+  "storage": "MinIO / Ceph 对象存储",
+  "storageSub": [
+    "结构化数据",
+    "非结构化数据"
+  ]
+};
+  const ns = 'http://www.w3.org/2000/svg';
+  const W = 900, H = 640;
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  function el(tag, attrs, text) {
+    const n = document.createElementNS(ns, tag);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    if (text !== undefined) n.textContent = text;
+    svg.appendChild(n);
+    return n;
+  }
+
+  // Left column: data sources
+  el('rect', { class: 'arch-band', x: 10, y: 10, width: 140, height: 610, rx: 12 });
+  const srcTop = 40, srcBottom = 550;
+  const srcStep = (srcBottom - srcTop) / (cfg.sources.length - 1);
+  cfg.sources.forEach((name, i) => {
+    const y = srcTop + i * srcStep;
+    el('rect', { class: 'arch-box', x: 25, y, width: 110, height: 50, rx: 8 });
+    el('text', { class: 'arch-s', x: 80, y: y + 30 }, name);
+  });
+  el('line', { class: 'arch-line', x1: 150, y1: 195, x2: 164, y2: 195 });
+  el('polygon', { class: 'arch-arrow', points: '164,190 164,200 170,195' });
+
+  // Top band: consumers
+  el('rect', { class: 'arch-box', x: 170, y: 10, width: 720, height: 100, rx: 12 });
+  cfg.apps.forEach((app, i) => {
+    const cx = 170 + 180 * i + 90;
+    el('text', { class: 'arch-t', x: cx, y: 48 }, app.name);
+    el('text', { class: 'arch-s', x: cx, y: 74 }, app.sub);
+  });
+
+  // Compute engines (highlighted: maps to Spark / SQL Warehouse)
+  el('rect', { class: 'arch-box arch-hl', x: 170, y: 130, width: 720, height: 130, rx: 12 });
+  el('text', { class: 'arch-t', x: 530, y: 154 }, cfg.engineTitle);
+  const eN = cfg.engines.length, eGap = 16, eW = (688 - (eN - 1) * eGap) / eN;
+  cfg.engines.forEach((e, i) => {
+    const x = 186 + i * (eW + eGap), cx = x + eW / 2;
+    el('rect', { class: 'arch-box', x, y: 168, width: eW, height: 82, rx: 8 });
+    el('text', { class: 'arch-t', x: cx, y: 200 }, e.name);
+    el('text', { class: 'arch-s', x: cx, y: 224 }, e.sub);
+  });
+
+  // Unified catalog (highlighted: maps to Unity Catalog)
+  el('rect', { class: 'arch-box arch-hl', x: 170, y: 300, width: 720, height: 44, rx: 8 });
+  el('text', { class: 'arch-t', x: 530, y: 327 }, cfg.catalog);
+
+  // Formats and warehouse: three dashed groups, each arrow up into the catalog
+  const fGap = 16, fW = (700 - 2 * fGap) / 3;
+  cfg.formats.forEach((g, i) => {
+    const x = 180 + i * (fW + fGap), cx = x + fW / 2;
+    el('rect', { class: 'arch-dash', x, y: 372, width: fW, height: 130, rx: 10 });
+    el('text', { class: 'arch-t', x: cx, y: 396 }, g.title);
+    const m = g.items.length, iw = (fW - 20 - (m - 1) * 8) / m;
+    g.items.forEach((name, j) => {
+      const ix = x + 10 + j * (iw + 8);
+      el('rect', { class: 'arch-box', x: ix, y: 414, width: iw, height: 52, rx: 6 });
+      el('text', { class: 'arch-s', x: ix + iw / 2, y: 444 }, name);
+    });
+    el('line', { class: 'arch-line', x1: cx, y1: 372, x2: cx, y2: 352 });
+    el('polygon', { class: 'arch-arrow', points: `${cx - 5},352 ${cx + 5},352 ${cx},346` });
+  });
+
+  // Bottom: object storage with structured / unstructured data
+  el('rect', { class: 'arch-box', x: 170, y: 520, width: 720, height: 90, rx: 12 });
+  el('text', { class: 'arch-t', x: 530, y: 543 }, cfg.storage);
+  cfg.storageSub.forEach((name, i) => {
+    const x = 190 + i * 350;
+    el('rect', { class: 'arch-dash', x, y: 555, width: 330, height: 40, rx: 6 });
+    el('text', { class: 'arch-s', x: x + 165, y: 580 }, name);
+  });
+
+  document.getElementById('arch').appendChild(svg);
+</script>
+</main>
+</body>
+</html>
